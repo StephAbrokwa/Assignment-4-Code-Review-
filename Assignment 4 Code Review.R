@@ -1,25 +1,120 @@
 # Assignment 4 Code Review - Sanari's Code 
 
+# My code reviewing comments will all start with my initials "SA:"
+
+# Assignment 4: Martians are coming! 
+# By: Sanari Wickramaratne 
+
+# Ensure that dplyr and tidyr package is installed. If not, please run the two lines of code below:
+install.packages("dplyr")
+install.packages("tidyr")
+
+# Loading the libraries of the required packages. 
+library(dplyr)
+library(tidyr)
+
+# 1. Read the data into a data frame and make sure that column names do not have spaces in them.
+ufo <- read.csv("~/Desktop/ufo_subset.csv") # Ensure this csv file is saved onto your working directory before running code. SA: changed this line of code because the file was located on my desktop
+colnames(ufo) # Checked output to confirm that column names do not have any spaces in them. Can proceed to next step. 
+
+# 2. Visually inspect and compare your data frame to the original csv to make sure that all data is loaded as expected.
+# DONE
+View(ufo)
+class(ufo) # Verify that ufo is a data frame. 
+
+# 3. Find the rows where Shape information is missing and impute with "unknown".
+ufo_updated <- ufo %>% 
+  mutate(shape = replace(shape, shape == "", "unknown"))
+View(ufo_updated) # Updated data set. 
+
+# 4. Remove the rows that do not have Country information.
+ufo_updated <- ufo_updated %>%
+  filter(country != "")
+View(ufo_updated) 
+
+# 5. Convert Datetime and Date_posted columns into appropriate formats
+ufo_updated$datetime <- as.Date(strptime(ufo_updated$datetime, format = "%Y-%m-%d %H:%M"))
+ufo_updated$date_posted <- as.Date(strptime(ufo_updated$date_posted, format = "%d-%m-%Y"))
+View(ufo_updated)
+
+# 6. Identifying possible hoax reports. 
+filtered_comments <- ufo %>% # Taking a look at the comments that contain "NUFORC" to see what keywords can be pulled. 
+  filter(grepl("NUFORC", comments, ignore.case = TRUE)) %>%
+  select(comments)
+filtered_comments$comments # Display the filtered comments by NUFORC. 
+
+ufo_updated <- ufo_updated %>%
+  mutate(is_hoax = grepl("hoax|false|fake|not real", comments, ignore.case = TRUE)) # Use mutate() and grepl to search for comments that include "hoax", "false", "fake", "not real", ignore case and create new Boolean column titled "is_hoax". 
+# It is difficult to include other keywords that could potentially signal a hoax, such as "airplane" or "star" since these words could be used as describing words for the UFO. 
+sum(ufo_updated$is_hoax == TRUE) # Count number of comments that contain these words, identifying as possible hoax. 
+View(ufo_updated) 
+
+# 7. Create a table reporting the percentage of hoax sightings per country.
+hoax_percentage <- ufo_updated %>%
+  group_by(country) %>%
+  summarize(percentage_hoax = mean(is_hoax) * 100)
+View(hoax_percentage) # View table form in new tab. 
+print(hoax_percentage) # View table form in output in console (alternate way of viewing table). 
+
+# 8. Add another column to the dataset (report_delay) and populate with the time difference in days, between the date of the sighting and the date it was reported.
+ufo_updated <- ufo_updated %>%
+  mutate(report_delay = as.numeric(difftime(as.Date(date_posted), as.Date(datetime), units = "days")))
+View(ufo_updated)
+
+# 9. Remove the rows where the sighting was reported before it happened.
+ufo_updated <- ufo_updated %>%
+  filter(report_delay >= 0)
+View(ufo_updated)
+
+# 10. Create a table reporting the average report_delay per country.
+avg_delay <- ufo_updated %>%
+  group_by(country) %>%
+  summarize(avg_report_delay = mean(report_delay))
+View(avg_delay)
+
+# 11. Check the data quality (missingness, format, range etc) of the "duration seconds" column. Explain what kinds of problems you have identified and how you chose to deal with them, in your comments.
+duration_empty <- sum(ufo_updated$duration.seconds == "") # Checking for empty spaces in the column. Provides output 0. 
+print(duration_empty)
+
+duration_na <- sum(is.na(ufo_updated$duration.seconds)) # Checking for NA's. Provides output of 0. 
+print(duration_na)
+
+duration_letters <- grepl("[a-zA-Z]", ufo_updated$duration.seconds) # Double-checking for any letters in the column (ensure it is in the right format). There are none. 
+table(duration_letters)
+
+duration_range <- sum(ufo_updated$duration.seconds > 86400) # Check range of values in the column to see if there are any above 86400 seconds. This equates to 24 hours which is an excessive amount of time for sighting duration. 
+print(duration_range) # Output says there are 38 values greater than 86400 seconds.                                        
+ufo_updated <- subset(ufo_updated, duration.seconds <= 86400) # Delete the values that exceed 86400 seconds. 
+View(ufo_updated)
+
+# 12. Create a histogram using the "duration seconds" column.
+hist(ufo_updated$duration.seconds, breaks = seq(0, max(ufo_updated$duration.seconds) + 1000, by = 1000), # Finding max value within duration.seconds column and setting the interval to increase by 1000. 
+     col = "blue", border = "black", # Assigning colours to the histogram bars and borders. 
+     xlab = "Duration in Seconds", ylab = "Frequency", # Assigning titles to x and y-axis. 
+     main = "Histogram of Duration of Sightings in Seconds (2010-2014)", # Assigining main title of histogram. 
+     xlim = c(0, 20000)) # Put limit of 20000 seconds on the x-axis since there doesn't to be many values above this and so the data is easier to visualize. 
+
 #SA: Assignment Guidelines
-# They successfully created and scanned a word list into their code to enable the user to guess words from a selected list  
-# They successfully ensured that a random word is chosen each time the game is generated using the 'sample' function
-# They successfully made the user aware of the number of letters found in the mystery word using the 'nchar' function, allowed the user to know how many guesses are allowed (6), and successfully aksed for user input
-# They successfully ensured that the user can input both lowercase and uppercase letters using the 'tolower' function
-# Game runs successfully through and ends - is not thrown into an infinite loop
-# User is notified about the correct letters (visually depicted) and remaining tries
+# They successfully verified that there were no spaces in the column names and that the ufo subset was loaded into a data frame 
+# They successfully replaced all NA values in shape to "unknown"
+# They successfully removed all rows that did not contain country information
+# They successfully converted Datetime and Date_posted columns into appropriate formats 
+# They successfully identified hoax reports and added the column is_hoax where the correct values TRUE and FALSE were applied to each line 
+    # They successfully generated hoax percentages for each country 
+# They successfully created a new column "report_delay" with values from (Date_posted - Datetime)
+    # They removed all rows where Date_posted was before Datetime
+# They successfully reported the avg report_delays for each country 
+# They checked their data quality for missingness, any letters in the duration.seconds column, and limited their range to a max value of 86400 seconds 
 
 #SA: Suggestions for Improvement 
-# When the user inputs the incorrect word the number of remaining tries does not go down so the user can guess as many words incorrectly without any penalty 
-# The user will also not be notified about which words they have already typed and may continuously type the same word without being prompted for novel input
-# Additionally, if the user puts input of a string of letters of numbers that matches the same numbers as the mystery word an attempt will be used
-# i.e. if the mystery word has 6 letters and the user inputs "98lk98" an attempt will go missing and the game will not show that this is an invalid input
-# The game also accepts single numbers as inputs and recognizes them as letters - would be helpful if the user was notified that their input was invalid and was only able to input letters
-# Would be nice if there was a visual tally of the user's guesses to help them remember previous attempts instead of just receiving the error message that they've guessed that letter
+# Instead of converting the Datetime column to a Date format, maybe convert it using the as.POSIXct function to maintain the time values for that column
+# Attempt the bonus question 
+# Use the logarithmic function to account for the large range within the histogram
 
 #SA: Overall Opinion
 # Followed assignment guidelines effectively 
-# Code utilizes different functions such as the 'cat' function to allow for the concatenation and printing of multiple arguments together 
+# Code contains visual functions to ensure that the dataset is being properly updated 
 # Code was easy to understand and follow - great comments to ensure the user knows what each line is generating 
 # Concise and effective 
 # Only a few minor alterations could be made outlined in the suggestions for improvement 
-# GREAT JOB ALANNA
+# GREAT JOB SANARI
